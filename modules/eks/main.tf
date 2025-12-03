@@ -132,7 +132,14 @@ resource "aws_eks_node_group" "main" {
     var.tags,
     {
       Name = "${local.name_prefix}-node-group"
+      # Required for cluster-autoscaler
+    "k8s.io/cluster-autoscaler/enabled"               = "true"
+    "k8s.io/cluster-autoscaler/${var.cluster_name}"   = "owned"
+
+    # Recommended AWS/EKS tagging
+    "kubernetes.io/cluster/${var.cluster_name}"       = "owned"
     }
+    
   )
 
   depends_on = [

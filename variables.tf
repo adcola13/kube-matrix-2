@@ -1,3 +1,25 @@
+locals {
+  name_prefix  = "${var.name_prefix}-${var.project}-${var.environment}" # if you want name_prefix compounded
+  
+}
+
+# Read the EKS cluster created by module.eks
+/*data "aws_eks_cluster" "main" {
+  name = local.cluster_name
+}
+
+data "tls_certificate" "cluster" {
+  url = data.aws_eks_cluster.main.identity[0].oidc[0].issuer
+}*/
+
+# Create OIDC provider for IRSA
+/*resource "aws_iam_openid_connect_provider" "eks" {
+  url             = data.aws_eks_cluster.main.identity[0].oidc[0].issuer
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.cluster.certificates[0].sha1_fingerprint]
+}*/
+
+
 #########################################
 # Global Settings
 #########################################
@@ -18,6 +40,7 @@ variable "environment" {
     error_message = "Environment must be dev, stage, or prod"
   }
 }
+
 
 variable "region" {
   description = "AWS region"
@@ -84,10 +107,20 @@ variable "access_cidr" {
 # EKS Settings
 #########################################
 
+variable "name_prefix" {
+  description = "Name Prefix"
+  type        = string
+}
+
+variable "cluster_name" {
+  description = "EKS Cluster Name"
+  type        = string
+}
+
 variable "eks_cluster_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.29"
+  default     = "1.34"
 }
 
 variable "eks_node_instance_types" {

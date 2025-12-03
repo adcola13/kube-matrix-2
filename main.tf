@@ -17,12 +17,11 @@ module "network" {
   tags                 = var.tags
 }
 
-
 #########################################
 # ECR REPOSITORIES
 #########################################
 
-module "ecr_frontend" {
+ module "ecr_frontend" {
   source = "./modules/ecr"
   name   = "frontend-repo"
 }
@@ -35,8 +34,34 @@ module "ecr_backend" {
 module "ecr_database" {
   source = "./modules/ecr"
   name   = "database-repo"
-}
+} 
 
+#########################################
+# AURORA SERVERLESS v2
+#########################################
+
+ module "database" {
+  source = "./modules/database"
+
+  project            = var.project
+  environment        = var.environment
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+
+  database_name   = var.aurora_database_name
+  master_username = var.aurora_master_username
+  master_password = var.aurora_master_password
+  engine_version  = var.aurora_engine_version
+
+  min_capacity = var.aurora_min_capacity
+  max_capacity = var.aurora_max_capacity
+
+  allowed_security_group_ids = [module.eks.cluster_security_group_id]
+
+  tags = var.tags
+
+  depends_on = [module.network, module.eks]
+} 
 
 #########################################
 # EKS CLUSTER
@@ -47,7 +72,7 @@ module "eks" {
 
   project     = var.project
   environment = var.environment
-
+  cluster_name = "${local.name_prefix}-eks"
   eks_cluster_version = var.eks_cluster_version
 
   vpc_id             = module.network.vpc_id
@@ -69,32 +94,49 @@ module "eks" {
   depends_on = [module.network]
 }
 
-
 #########################################
-# AURORA SERVERLESS v2
+# Subnet Tagging
 #########################################
-
-module "database" {
-  source = "./modules/database"
-
-  project            = var.project
-  environment        = var.environment
-  vpc_id             = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
-
-  database_name   = var.aurora_database_name
-  master_username = var.aurora_master_username
-  master_password = var.aurora_master_password
-  engine_version  = var.aurora_engine_version
-
-  min_capacity = var.aurora_min_capacity
-  max_capacity = var.aurora_max_capacity
-
-  allowed_security_group_ids = [module.eks.cluster_security_group_id]
-
-  tags = var.tags
-
+module "subnet_tags" {
+  source            = "./modules/subnet-tags"
+  cluster_name       = module.eks.cluster_name
+  public_subnet_ids  = module.network.public_subnets
+  private_subnet_ids = module.network.private_subnets
   depends_on = [module.network, module.eks]
 }
+
+#########################################
+# ALB Controller
+#########################################
+module "alb_controller" {
+  source                = "./modules/alb-controller"
+  cluster_name          = module.eks.cluster_name
+  region                = var.region
+  project               = var.project
+  vpc_id                = module.network.vpc_id
+  name_prefix           = var.name_prefix
+  environment           = var.environment
+  cluster_oidc_provider = module.eks.cluster_oidc_provider_arn
+  tags                  = var.tags
+  depends_on = [module.eks]
+}
+
+
+#########################################
+# Cluster Autoscaler
+#########################################
+module "cluster_autoscaler" {
+  source                = "./modules/cluster-autoscaler"
+  cluster_name          = module.eks.cluster_name
+  region                = var.region
+  name_prefix           = var.name_prefix
+  project               = var.project
+  environment           = var.environment
+  cluster_oidc_provider = module.eks.cluster_oidc_provider_arn
+  tags                  = var.tags
+  depends_on = [module.eks]
+}
+
+
 
 

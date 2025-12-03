@@ -47,7 +47,7 @@ output "aws_region" {
 # ECR Outputs
 #########################################
 
-output "ecr_frontend_repository_url" {
+/* output "ecr_frontend_repository_url" {
   description = "Frontend ECR repository URL"
   value       = module.ecr_frontend.ecr_repository_url
 }
@@ -75,7 +75,7 @@ output "ecr_database_repository_url" {
 output "ecr_database_policy_arn" {
   description = "Database ECR lifecycle policy ARN"
   value       = module.ecr_database.ecr_policy_arn
-}
+} */
 
 
 #########################################
@@ -112,7 +112,7 @@ output "eks_node_group_name" {
 # Aurora Serverless v2 Outputs
 #########################################
 
-output "aurora_cluster_endpoint" {
+/* output "aurora_cluster_endpoint" {
   description = "Aurora cluster endpoint (writer)"
   value       = module.database.cluster_endpoint
 }
@@ -125,7 +125,7 @@ output "aurora_reader_endpoint" {
 output "aurora_cluster_id" {
   description = "ID of the Aurora cluster"
   value       = module.database.cluster_id
-}
+} */
 
 
 #########################################
@@ -143,3 +143,10 @@ output "external_alb_dns" {
   description = "Standalone ALB DNS name"
   value       = try(module.alb.lb_dns_name, null)
 }*/
+output "alb_irsa_role_arn" {
+  value = module.alb_controller.alb_irsa_role_arn
+}
+
+output "autoscaler_irsa_role_arn" {
+  value = module.cluster_autoscaler.autoscaler_irsa_role_arn
+}
