@@ -74,3 +74,6 @@ db_master_password_ssm_key = "/br/dev/db/master_password"
 #EKS
 cluster_name="eks"
 name_prefix="br"
+
+#ECR
+repo_name_prefix="book-review"
