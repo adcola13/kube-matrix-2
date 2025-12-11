@@ -1,0 +1,97 @@
+name: Bootstrap Terraform (Create S3 state + DynamoDB lock)
+
+# Manual trigger only - run from Actions UI
+on:
+  workflow_dispatch:
+    inputs:
+      var_file:
+        description: 'Optional tfvars file in bootstrap dir (example: bootstrap.tfvars)'
+        required: false
+        default: 'bootstrap.tfvars'
+      auto_approve:
+        description: 'Auto-approve apply (true/false)'
+        required: false
+        default: 'true'
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+jobs:
+  bootstrap:
+    name: Run Terraform Bootstrap
+    runs-on: ubuntu-latest
+    outputs:
+      s3_bucket: ${{ steps.outputs_step.outputs.bucket_name }}
+      dynamodb_table: ${{ steps.outputs_step.outputs.dynamodb_table }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}    # required: set in repo secrets
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.5.6' # pick your required version
+
+      - name: Install jq (for JSON parsing)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Change to bootstrap directory
+        run: cd bootstrap
+        shell: bash
+
+      - name: Terraform format & validate
+        working-directory: ./bootstrap
+        run: |
+          terraform fmt -check || true
+          terraform validate
+
+      - name: Terraform init
+        working-directory: ./bootstrap
+        run: terraform init
+
+      - name: Terraform plan
+        working-directory: ./bootstrap
+        run: |
+          TFVARS="${{ github.event.inputs.var_file }}"
+          if [ -f "./${TFVARS}" ]; then
+            terraform plan -var-file="${TFVARS}" -out=plan.tfplan
+          else
+            terraform plan -out=plan.tfplan
+          fi
+
+      - name: Terraform apply (conditional auto-approve)
+        if: ${{ github.event.inputs.auto_approve == 'true' }}
+        working-directory: ./bootstrap
+        run: |
+          terraform apply -auto-approve plan.tfplan
+
+      - name: Terraform apply (interactive - if auto_approve false)
+        if: ${{ github.event.inputs.auto_approve != 'true' }}
+        working-directory: ./bootstrap
+        run: |
+          echo "Auto-approve disabled. Please review plan and re-run with auto_approve=true if OK."
+          terraform apply plan.tfplan
+
+      - name: Read Terraform outputs and set workflow outputs
+        id: outputs_step
+        working-directory: ./bootstrap
+        run: |
+          # Use -raw to get simple output strings (ensure outputs exist in your TF)
+          set -e
+          # fallback if outputs names differ: adjust names below to match your bootstrap.tf outputs
+          BUCKET=$(terraform output -raw unique_bucket_name 2>/dev/null || terraform output -raw terraform_state_bucket 2>/dev/null || echo "")
+          TABLE=$(terraform output -raw dynamodb_table_name 2>/dev/null || terraform output -raw terraform_lock_table 2>/dev/null || echo "")
+          echo "Got outputs:"
+          echo "  bucket = $BUCKET"
+          echo "  table  = $TABLE"
+          # Expose to job outputs
+          echo "bucket_name=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "dynamodb_table=$TABLE" >> "$GITHUB_OUTPUT"
