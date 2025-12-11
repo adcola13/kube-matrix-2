@@ -23,17 +23,17 @@ module "network" {
 
  module "ecr_frontend" {
   source = "./modules/ecr"
-  name   = "frontend-repo"
+  name   = "${local.repo_name_prefix}-frontend"
 }
 
 module "ecr_backend" {
   source = "./modules/ecr"
-  name   = "backend-repo"
+  name   = "${local.repo_name_prefix}-backend"
 }
 
 module "ecr_database" {
   source = "./modules/ecr"
-  name   = "database-repo"
+  name   = "${local.repo_name_prefix}-database"
 } 
 
 #########################################
