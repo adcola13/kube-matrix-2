@@ -97,20 +97,43 @@ jobs:
         run: |
           set -euo pipefail
       
-          # get all outputs as JSON (no color)
-          terraform output -json > tf_outputs.json
+          # run terraform output -json and capture stderr separately to help debugging
+          terraform output -json > tf_outputs.json 2>tf_outputs.err || true
       
-          # extract fields safely (use empty string fallback if missing)
-          BUCKET=$(jq -r '.unique_bucket_name.value // .terraform_state_bucket.value // ""' tf_outputs.json)
-          TABLE=$(jq -r '.dynamodb_table_name.value // .terraform_lock_table.value // ""' tf_outputs.json)
+          # debug: show any stderr (useful when troubleshooting in GH Actions logs)
+          if [ -s tf_outputs.err ]; then
+            echo "WARNING: terraform output emitted stderr (showing up to 200 lines):"
+            sed -n '1,200p' tf_outputs.err
+          fi
+      
+          # quick sanity check: file must exist and be valid JSON
+          if [ ! -s tf_outputs.json ]; then
+            echo "No JSON output produced by 'terraform output -json' - treating outputs as empty."
+            BUCKET=""
+            TABLE=""
+          else
+            # validate JSON
+            if ! jq -e . tf_outputs.json > /dev/null 2>&1; then
+              echo "ERROR: tf_outputs.json is not valid JSON. Showing file for debugging:"
+              sed -n '1,200p' tf_outputs.json
+              exit 1
+            fi
+      
+            # extract values (use empty fallback if missing)
+            BUCKET=$(jq -r '.unique_bucket_name.value // .terraform_state_bucket.value // empty' tf_outputs.json || true)
+            TABLE=$(jq -r '.dynamodb_table_name.value // .terraform_lock_table.value // empty' tf_outputs.json || true)
+      
+            # ensure variables are not "null"
+            [ "$BUCKET" = "null" ] && BUCKET=""
+            [ "$TABLE" = "null" ] && TABLE=""
+          fi
       
           echo "Got outputs:"
-          echo "  bucket = ${BUCKET}"
-          echo "  table  = ${TABLE}"
+          echo "  bucket = ${BUCKET:-<empty>}"
+          echo "  table  = ${TABLE:-<empty>}"
       
-          # write to GITHUB_OUTPUT safely (heredoc to avoid parsing issues)
+          # write to GITHUB_OUTPUT safely (no leading spaces in heredoc)
           cat <<EOF >> "$GITHUB_OUTPUT"
           bucket_name=${BUCKET}
           dynamodb_table=${TABLE}
           EOF
-
