@@ -1,9 +1,9 @@
 region              = "us-east-1"
-prefix              = "br"
-bucket_prefix       = "br-terraform-state"
-dynamodb_table_name = "br-terraform-locks"
+prefix              = "km"
+bucket_prefix       = "km-terraform-state-dev"
+dynamodb_table_name = "km-terraform-locks-dev"
 tags = {
-  Project     = "book-review"
+  Project     = "kube-matrix"
   Environment = "bootstrap"
   ManagedBy   = "terraform"
 }
