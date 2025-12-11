@@ -181,6 +181,14 @@ variable "eks_disk_size" {
 }
 
 #########################################
+# ECR Repositories
+#########################################
+variable "repo_name_prefix" {
+  description = "Name prefix for repositories"
+  type        = string
+}
+
+#########################################
 # Aurora Serverless v2
 #########################################
 variable "aurora_database_name" {
