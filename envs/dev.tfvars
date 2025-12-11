@@ -73,4 +73,4 @@ db_master_password_ssm_key = "/br/dev/db/master_password"
 
 #EKS
 cluster_name="eks"
-name_prefix="km"
+name_prefix="br"
