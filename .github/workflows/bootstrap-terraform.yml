@@ -91,35 +91,35 @@ jobs:
           echo "Auto-approve disabled. Please review plan and re-run with auto_approve=true if OK."
           terraform apply plan.tfplan
 
-      - name: Read Terraform outputs (force-clean JSON)
-        id: outputs_step
-        working-directory: ./bootstrap
-        run: |
-          set -euo pipefail
-      
-          # Capture raw output (may contain noise)
-          terraform output -json 2>tf_outputs.err | tee tf_outputs_raw.json
+ #     - name: Read Terraform outputs (force-clean JSON)
+ #       id: outputs_step
+ #       working-directory: ./bootstrap
+#        run: |
+#          set -euo pipefail
+#      
+#          # Capture raw output (may contain noise)
+#          terraform output -json 2>tf_outputs.err | tee tf_outputs_raw.json
       
           # Strip everything before first "{"
-          sed '1,/^{/d; 1s/^{/{/' tf_outputs_raw.json > tf_outputs.json
+#          sed '1,/^{/d; 1s/^{/{/' tf_outputs_raw.json > tf_outputs.json
       
           # Validate cleaned JSON
-          if ! jq -e . tf_outputs.json >/dev/null 2>&1; then
-            echo "ERROR: Cleaned tf_outputs.json is not valid JSON. Dumping for debugging:"
-            sed -n '1,200p' tf_outputs.json
-            exit 1
-          fi
+ #         if ! jq -e . tf_outputs.json >/dev/null 2>&1; then
+  #          echo "ERROR: Cleaned tf_outputs.json is not valid JSON. Dumping for debugging:"
+   #         sed -n '1,200p' tf_outputs.json
+   #         exit 1
+    #      fi
       
           # Extract values
-          BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
-          TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
+   #       BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
+   #       TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
       
-          echo "bucket = $BUCKET"
-          echo "table  = $TABLE"
+  #        echo "bucket = $BUCKET"
+  #        echo "table  = $TABLE"
       
-          # Write outputs safely
-          cat <<EOF >> "$GITHUB_OUTPUT"
-          bucket_name=$BUCKET
-          dynamodb_table=$TABLE
-          EOF
+  #        # Write outputs safely
+  #        cat <<EOF >> "$GITHUB_OUTPUT"
+  #        bucket_name=$BUCKET
+  #        dynamodb_table=$TABLE
+  #        EOF
 
