@@ -28,7 +28,7 @@ resource "time_static" "s3_suffix" {}
 
 # Example output: 20250212T093015Z → converted to simple suffix: 20250212093015
 locals {
-  bucket_suffix = regexreplace(timestamp(), "[^0-9]", "")
+  bucket_suffix = replace(timestamp(), "/[-T:Z]/", "")
   unique_bucket_name = "${var.bucket_prefix}-${local.bucket_suffix}"
   unique_dynamo_name = "${var.dynamodb_table_name}-${local.bucket_suffix}"
 }
