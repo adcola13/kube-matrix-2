@@ -91,49 +91,35 @@ jobs:
           echo "Auto-approve disabled. Please review plan and re-run with auto_approve=true if OK."
           terraform apply plan.tfplan
 
-      - name: Read Terraform outputs and set workflow outputs (robust)
+      - name: Read Terraform outputs (force-clean JSON)
         id: outputs_step
         working-directory: ./bootstrap
         run: |
           set -euo pipefail
       
-          # run terraform output -json and capture stderr separately to help debugging
-          terraform output -json > tf_outputs.json 2>tf_outputs.err || true
+          # Capture raw output (may contain noise)
+          terraform output -json 2>tf_outputs.err | tee tf_outputs_raw.json
       
-          # debug: show any stderr (useful when troubleshooting in GH Actions logs)
-          if [ -s tf_outputs.err ]; then
-            echo "WARNING: terraform output emitted stderr (showing up to 200 lines):"
-            sed -n '1,200p' tf_outputs.err
+          # Strip everything before first "{"
+          sed '1,/^{/d; 1s/^{/{/' tf_outputs_raw.json > tf_outputs.json
+      
+          # Validate cleaned JSON
+          if ! jq -e . tf_outputs.json >/dev/null 2>&1; then
+            echo "ERROR: Cleaned tf_outputs.json is not valid JSON. Dumping for debugging:"
+            sed -n '1,200p' tf_outputs.json
+            exit 1
           fi
       
-          # quick sanity check: file must exist and be valid JSON
-          if [ ! -s tf_outputs.json ]; then
-            echo "No JSON output produced by 'terraform output -json' - treating outputs as empty."
-            BUCKET=""
-            TABLE=""
-          else
-            # validate JSON
-            if ! jq -e . tf_outputs.json > /dev/null 2>&1; then
-              echo "ERROR: tf_outputs.json is not valid JSON. Showing file for debugging:"
-              sed -n '1,200p' tf_outputs.json
-              exit 1
-            fi
+          # Extract values
+          BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
+          TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
       
-            # extract values (use empty fallback if missing)
-            BUCKET=$(jq -r '.unique_bucket_name.value // .terraform_state_bucket.value // empty' tf_outputs.json || true)
-            TABLE=$(jq -r '.dynamodb_table_name.value // .terraform_lock_table.value // empty' tf_outputs.json || true)
+          echo "bucket = $BUCKET"
+          echo "table  = $TABLE"
       
-            # ensure variables are not "null"
-            [ "$BUCKET" = "null" ] && BUCKET=""
-            [ "$TABLE" = "null" ] && TABLE=""
-          fi
-      
-          echo "Got outputs:"
-          echo "  bucket = ${BUCKET:-<empty>}"
-          echo "  table  = ${TABLE:-<empty>}"
-      
-          # write to GITHUB_OUTPUT safely (no leading spaces in heredoc)
+          # Write outputs safely
           cat <<EOF >> "$GITHUB_OUTPUT"
-          bucket_name=${BUCKET}
-          dynamodb_table=${TABLE}
+          bucket_name=$BUCKET
+          dynamodb_table=$TABLE
           EOF
+
