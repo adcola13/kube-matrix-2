@@ -76,4 +76,4 @@ cluster_name="eks"
 name_prefix="book-review"
 
 #ECR
-#repo_name_prefix="book-review"
+repo_name_prefix="book-review"
