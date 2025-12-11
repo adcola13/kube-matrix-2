@@ -91,18 +91,26 @@ jobs:
           echo "Auto-approve disabled. Please review plan and re-run with auto_approve=true if OK."
           terraform apply plan.tfplan
 
-      - name: Read Terraform outputs and set workflow outputs
+      - name: Read Terraform outputs and set workflow outputs (robust)
         id: outputs_step
         working-directory: ./bootstrap
         run: |
-          # Use -raw to get simple output strings (ensure outputs exist in your TF)
-          set -e
-          # fallback if outputs names differ: adjust names below to match your bootstrap.tf outputs
-          BUCKET=$(terraform output -raw unique_bucket_name 2>/dev/null || terraform output -raw terraform_state_bucket 2>/dev/null || echo "")
-          TABLE=$(terraform output -raw dynamodb_table_name 2>/dev/null || terraform output -raw terraform_lock_table 2>/dev/null || echo "")
+          set -euo pipefail
+      
+          # get all outputs as JSON (no color)
+          terraform output -json > tf_outputs.json
+      
+          # extract fields safely (use empty string fallback if missing)
+          BUCKET=$(jq -r '.unique_bucket_name.value // .terraform_state_bucket.value // ""' tf_outputs.json)
+          TABLE=$(jq -r '.dynamodb_table_name.value // .terraform_lock_table.value // ""' tf_outputs.json)
+      
           echo "Got outputs:"
-          echo "  bucket = $BUCKET"
-          echo "  table  = $TABLE"
-          # Expose to job outputs
-          echo "bucket_name=$BUCKET" >> "$GITHUB_OUTPUT"
-          echo "dynamodb_table=$TABLE" >> "$GITHUB_OUTPUT"
+          echo "  bucket = ${BUCKET}"
+          echo "  table  = ${TABLE}"
+      
+          # write to GITHUB_OUTPUT safely (heredoc to avoid parsing issues)
+          cat <<EOF >> "$GITHUB_OUTPUT"
+      bucket_name=${BUCKET}
+      dynamodb_table=${TABLE}
+      EOF
+
