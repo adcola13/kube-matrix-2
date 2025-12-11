@@ -47,24 +47,35 @@ jobs:
         run: cd bootstrap
         shell: bash
 
-      - name: Terraform format & validate
+      - name: Terraform format (check)
+        working-directory: ./bootstrap
+        # This step will report if formatting is required but will not fail the job.
+        # Remove `continue-on-error: true` if you want the job to fail on bad formatting.
+        continue-on-error: true
+        run: |
+          set -e
+          terraform fmt -check
+
+      - name: Terraform init (install providers, no backend)
         working-directory: ./bootstrap
         run: |
-          terraform fmt -check || true
-          terraform validate
+          # Initialize and download providers/modules without configuring remote backend
+          terraform init -input=false -backend=false
 
-      - name: Terraform init
+      - name: Terraform validate
         working-directory: ./bootstrap
-        run: terraform init
+        run: |
+          terraform validate
 
       - name: Terraform plan
         working-directory: ./bootstrap
         run: |
-          TFVARS="${{ github.event.inputs.var_file }}"
+          # If you pass tfvars filename via workflow input, pick it up; adjust accordingly
+          TFVARS="${{ github.event.inputs.var_file || 'bootstrap.tfvars' }}"
           if [ -f "./${TFVARS}" ]; then
-            terraform plan -var-file="${TFVARS}" -out=plan.tfplan
+            terraform plan -input=false -var-file="${TFVARS}" -out=plan.tfplan
           else
-            terraform plan -out=plan.tfplan
+            terraform plan -input=false -out=plan.tfplan
           fi
 
       - name: Terraform apply (conditional auto-approve)
