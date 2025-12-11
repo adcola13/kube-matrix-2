@@ -110,7 +110,7 @@ jobs:
       
           # write to GITHUB_OUTPUT safely (heredoc to avoid parsing issues)
           cat <<EOF >> "$GITHUB_OUTPUT"
-      bucket_name=${BUCKET}
-      dynamodb_table=${TABLE}
-      EOF
+          bucket_name=${BUCKET}
+          dynamodb_table=${TABLE}
+          EOF
 
