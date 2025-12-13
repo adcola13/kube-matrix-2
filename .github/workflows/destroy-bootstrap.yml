@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
 
       # --------------------------------------------------------
-      # Configure AWS (OIDC role)
+      # Configure AWS with OIDC
       # --------------------------------------------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -38,7 +38,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       # --------------------------------------------------------
-      # Install Terraform + jq
+      # Setup Terraform + jq
       # --------------------------------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -49,7 +49,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq
 
       # --------------------------------------------------------
-      # Initialize Terraform (NO backend)
+      # Terraform init without backend
       # --------------------------------------------------------
       - name: Terraform init (backend disabled)
         working-directory: ./bootstrap
@@ -63,10 +63,9 @@ jobs:
         run: terraform validate
 
       # --------------------------------------------------------
-      # Terraform plan (destroy preview, safe)
+      # Terraform plan destroy
       # --------------------------------------------------------
       - name: Terraform plan (destroy)
-        id: plan
         working-directory: ./bootstrap
         run: |
           TFVARS="${{ github.event.inputs.var_file }}"
@@ -78,46 +77,30 @@ jobs:
           fi
 
       # --------------------------------------------------------
-      # Read Terraform outputs SAFELY using JSON
+      # Read outputs directly from terraform.tfstate
       # --------------------------------------------------------
-      - name: Read Terraform outputs (clean + JSON-safe)
+      - name: Read Terraform outputs from tfstate
         id: tf_outputs
         working-directory: ./bootstrap
         run: |
-          set -e
-      
-          echo "Running terraform output -json ..."
-          terraform output -json > tf_raw.json 2>&1 || true
-      
-          echo "Raw terraform output:"
-          sed -n '1,50p' tf_raw.json
-      
-          echo "Cleaning JSON..."
-          # Remove everything BEFORE first '{'
-          sed '0,/{/s/.*{//' tf_raw.json | sed '1s/^/{/' > tf_outputs.json
-      
-          echo "Cleaned terraform JSON:"
-          sed -n '1,50p' tf_outputs.json
-      
-          # Validate cleaned JSON
-          if ! jq -e . tf_outputs.json > /dev/null 2>&1; then
-            echo "ERROR: cleaned JSON is still invalid"
+          STATE="terraform.tfstate"
+
+          if [ ! -f "$STATE" ]; then
+            echo "ERROR: terraform.tfstate not found!"
             exit 1
           fi
-      
-          # Extract values
-          BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
-          TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
-      
-          echo "Final parsed bucket: $BUCKET"
-          echo "Final parsed table: $TABLE"
-      
-          # Export to workflow outputs
-          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
-          echo "table=$TABLE" >> $GITHUB_OUTPUT
+
+          BUCKET=$(jq -r '.outputs.unique_bucket_name.value // empty' "$STATE")
+          TABLE=$(jq -r '.outputs.dynamodb_table_name.value // empty' "$STATE")
+
+          echo "Found bucket: $BUCKET"
+          echo "Found DynamoDB table: $TABLE"
+
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "table=$TABLE" >> "$GITHUB_OUTPUT"
 
       # --------------------------------------------------------
-      # Empty S3 bucket BEFORE running destroy
+      # Empty S3 bucket before destroy
       # --------------------------------------------------------
       - name: Empty S3 bucket
         if: ${{ steps.tf_outputs.outputs.bucket != '' }}
@@ -125,20 +108,19 @@ jobs:
           BUCKET="${{ steps.tf_outputs.outputs.bucket }}"
           echo "Emptying bucket: $BUCKET ..."
           aws s3 rm "s3://${BUCKET}" --recursive || true
-          echo "Bucket emptied (or did not exist)."
+          echo "Bucket emptied."
 
       # --------------------------------------------------------
-      # Delete DynamoDB table BEFORE destroy (to avoid TF hang)
+      # Delete DynamoDB table (Terraform cannot delete while locked)
       # --------------------------------------------------------
-      - name: Delete DynamoDB lock table manually
+      - name: Delete DynamoDB lock table
         if: ${{ steps.tf_outputs.outputs.table != '' }}
         run: |
           TABLE="${{ steps.tf_outputs.outputs.table }}"
-          echo "Deleting DynamoDB table: $TABLE ..."
+          echo "Deleting DynamoDB table: $TABLE"
           aws dynamodb delete-table --table-name "$TABLE" || true
-          echo "Waiting for deletion..."
           aws dynamodb wait table-not-exists --table-name "$TABLE" || true
-          echo "Table deletion complete or skipped."
+          echo "Table deleted."
 
       # --------------------------------------------------------
       # Terraform destroy
@@ -148,13 +130,13 @@ jobs:
         working-directory: ./bootstrap
         run: terraform destroy -auto-approve destroy.tfplan
 
-      - name: Terraform destroy (manual confirmation)
+      - name: Terraform destroy (manual confirm)
         if: ${{ github.event.inputs.auto_approve != 'true' }}
         working-directory: ./bootstrap
         run: terraform destroy destroy.tfplan
 
       # --------------------------------------------------------
-      # Final Cleanup Log
+      # Done
       # --------------------------------------------------------
       - name: Completed
-        run: echo "Bootstrap destroy workflow completed successfully."
+        run: echo "Bootstrap destroy completed successfully."
