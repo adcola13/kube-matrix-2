@@ -80,42 +80,41 @@ jobs:
       # --------------------------------------------------------
       # Read Terraform outputs SAFELY using JSON
       # --------------------------------------------------------
-        - name: Read Terraform outputs (clean + JSON-safe)
-          id: tf_outputs
-          working-directory: ./bootstrap
-          run: |
-            set -e
-        
-            echo "Running terraform output -json ..."
-            terraform output -json > tf_raw.json 2>&1 || true
-        
-            echo "Raw terraform output:"
-            sed -n '1,50p' tf_raw.json
-        
-            echo "Cleaning JSON..."
-            # Remove everything BEFORE first '{'
-            sed '0,/{/s/.*{//' tf_raw.json | sed '1s/^/{/' > tf_outputs.json
-        
-            echo "Cleaned terraform JSON:"
-            sed -n '1,50p' tf_outputs.json
-        
-            # Validate cleaned JSON
-            if ! jq -e . tf_outputs.json > /dev/null 2>&1; then
-              echo "ERROR: cleaned JSON is still invalid"
-              exit 1
-            fi
-        
-            # Extract values
-            BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
-            TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
-        
-            echo "Final parsed bucket: $BUCKET"
-            echo "Final parsed table: $TABLE"
-        
-            # Export to workflow outputs
-            echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
-            echo "table=$TABLE" >> $GITHUB_OUTPUT
-
+      - name: Read Terraform outputs (clean + JSON-safe)
+        id: tf_outputs
+        working-directory: ./bootstrap
+        run: |
+          set -e
+      
+          echo "Running terraform output -json ..."
+          terraform output -json > tf_raw.json 2>&1 || true
+      
+          echo "Raw terraform output:"
+          sed -n '1,50p' tf_raw.json
+      
+          echo "Cleaning JSON..."
+          # Remove everything BEFORE first '{'
+          sed '0,/{/s/.*{//' tf_raw.json | sed '1s/^/{/' > tf_outputs.json
+      
+          echo "Cleaned terraform JSON:"
+          sed -n '1,50p' tf_outputs.json
+      
+          # Validate cleaned JSON
+          if ! jq -e . tf_outputs.json > /dev/null 2>&1; then
+            echo "ERROR: cleaned JSON is still invalid"
+            exit 1
+          fi
+      
+          # Extract values
+          BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
+          TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
+      
+          echo "Final parsed bucket: $BUCKET"
+          echo "Final parsed table: $TABLE"
+      
+          # Export to workflow outputs
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          echo "table=$TABLE" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------------
       # Empty S3 bucket BEFORE running destroy
