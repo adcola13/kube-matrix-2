@@ -1,0 +1,99 @@
+name: Destroy Bootstrap Terraform (S3 State + DynamoDB Lock)
+
+on:
+  workflow_dispatch:
+    inputs:
+      var_file:
+        description: 'Optional tfvars file in bootstrap dir (example: bootstrap.tfvars)'
+        required: false
+        default: 'bootstrap.tfvars'
+      auto_approve:
+        description: 'Auto-approve destroy (true/false)'
+        required: false
+        default: 'true'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  destroy:
+    name: Terraform Destroy Bootstrap Resources
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.5.6'
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Change to bootstrap directory
+        run: cd bootstrap
+        shell: bash
+
+      - name: Terraform init (NO backend)
+        working-directory: ./bootstrap
+        run: terraform init -input=false -backend=false
+
+      - name: Load var file (optional)
+        id: varfile
+        run: |
+          echo "TFVARS=${{ github.event.inputs.var_file }}" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform plan (destroy)
+        working-directory: ./bootstrap
+        run: |
+          TFVARS="${{ steps.varfile.outputs.TFVARS }}"
+
+          if [ -f "./${TFVARS}" ]; then
+            terraform plan -destroy -input=false -var-file="${TFVARS}" -out=destroy.tfplan
+          else
+            terraform plan -destroy -input=false -out=destroy.tfplan
+          fi
+
+      # -------------------------------------------------------------------
+      # Force-delete S3 bucket contents BEFORE terraform destroy
+      # (terraform destroy will fail if bucket is not empty)
+      # -------------------------------------------------------------------
+      - name: Read bucket name from tfstate
+        id: read_bucket
+        working-directory: ./bootstrap
+        run: |
+          BUCKET=$(terraform output -raw unique_bucket_name 2>/dev/null || echo "")
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "Bucket resolved: $BUCKET"
+
+      - name: Empty S3 bucket before destroy
+        if: ${{ steps.read_bucket.outputs.bucket != '' }}
+        run: |
+          BUCKET="${{ steps.read_bucket.outputs.bucket }}"
+          echo "Emptying bucket: $BUCKET ..."
+          aws s3 rm "s3://${BUCKET}" --recursive || true
+          echo "Bucket emptied."
+
+      # -------------------------------------------------------------------
+      # Terraform destroy execution
+      # -------------------------------------------------------------------
+      - name: Terraform destroy (auto-approve)
+        if: ${{ github.event.inputs.auto_approve == 'true' }}
+        working-directory: ./bootstrap
+        run: |
+          terraform destroy -auto-approve destroy.tfplan
+
+      - name: Terraform destroy (manual approval)
+        if: ${{ github.event.inputs.auto_approve != 'true' }}
+        working-directory: ./bootstrap
+        run: |
+          terraform destroy destroy.tfplan
