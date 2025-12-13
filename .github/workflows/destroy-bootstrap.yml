@@ -128,12 +128,12 @@ jobs:
       - name: Terraform destroy (auto-approve)
         if: ${{ github.event.inputs.auto_approve == 'true' }}
         working-directory: ./bootstrap
-        run: terraform destroy -auto-approve destroy.tfplan
+        run: terraform apply -auto-approve destroy.tfplan
 
       - name: Terraform destroy (manual confirm)
         if: ${{ github.event.inputs.auto_approve != 'true' }}
         working-directory: ./bootstrap
-        run: terraform destroy destroy.tfplan
+        run: terraform apply destroy.tfplan
 
       # --------------------------------------------------------
       # Done
