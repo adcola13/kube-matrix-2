@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       var_file:
-        description: "TFVARS file used in bootstrap"
+        description: "TFVARS file used for bootstrap (must exist in bootstrap folder)"
         required: false
         default: "bootstrap.tfvars"
       auto_approve:
-        description: "Auto approve destroy step (true/false)"
+        description: "Auto approve destroy (true/false)"
         required: false
         default: "true"
 
@@ -18,19 +18,22 @@ permissions:
 
 jobs:
   destroy:
-    name: Destroy bootstrap resources
+    name: Destroy Bootstrap Resources
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------ CHECKOUT CODE ----------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ------------------ AUTH WITH AWS OIDC ------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # ------------------ INSTALL TERRAFORM + JQ --------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -39,63 +42,77 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Terraform init (no backend)
+      # ------------------ TERRAFORM INIT ----------------------
+      - name: Terraform init (NO backend)
         working-directory: ./bootstrap
         run: terraform init -backend=false -input=false
 
-      - name: Read outputs from tfstate
+      # ------------------ READ VALUES FROM TERRAFORM.TFSTATE --
+      - name: Read bucket & table from terraform.tfstate
         id: read_state
         working-directory: ./bootstrap
         run: |
           STATE="terraform.tfstate"
-
           if [ ! -f "$STATE" ]; then
-            echo "ERROR: terraform.tfstate not found. Cannot read outputs."
+            echo "ERROR: terraform.tfstate not found — bootstrap must be applied first."
             exit 1
           fi
 
           BUCKET=$(jq -r '.outputs.unique_bucket_name.value // empty' "$STATE")
           TABLE=$(jq -r '.outputs.dynamodb_table_name.value // empty' "$STATE")
 
-          echo "bucket_name=$BUCKET" >> "$GITHUB_OUTPUT"
-          echo "dynamodb_table=$TABLE" >> "$GITHUB_OUTPUT"
-
           echo "Found bucket: $BUCKET"
           echo "Found table : $TABLE"
 
-      # ---------------------------------------------------------
-      # Empty S3 bucket
-      # ---------------------------------------------------------
+          echo "bucket_name=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "dynamodb_table=$TABLE" >> "$GITHUB_OUTPUT"
+
+      # ------------------ EMPTY S3 BUCKET ----------------------
       - name: Empty S3 bucket
         if: ${{ steps.read_state.outputs.bucket_name != '' }}
         run: |
           BUCKET="${{ steps.read_state.outputs.bucket_name }}"
-          echo "Removing all objects from bucket=$BUCKET"
+          echo "Emptying S3 bucket: $BUCKET"
           aws s3 rm "s3://$BUCKET" --recursive || true
+          echo "Bucket emptied."
 
-      # ---------------------------------------------------------
-      # Delete DynamoDB table
-      # ---------------------------------------------------------
+      # ------------------ DELETE DYNAMODB TABLE ----------------
       - name: Delete DynamoDB table
         if: ${{ steps.read_state.outputs.dynamodb_table != '' }}
         run: |
           TABLE="${{ steps.read_state.outputs.dynamodb_table }}"
-          echo "Deleting table=$TABLE"
+          echo "Deleting DynamoDB table: $TABLE"
           aws dynamodb delete-table --table-name "$TABLE" || true
           aws dynamodb wait table-not-exists --table-name "$TABLE" || true
+          echo "Table deleted."
 
-      # ---------------------------------------------------------
-      # Terraform destroy (using actual CRUD)
-      # ---------------------------------------------------------
-      - name: Terraform destroy (auto approve)
+      # ------------------ TERRAFORM DESTROY --------------------
+      - name: Terraform destroy (auto-approve)
         if: ${{ github.event.inputs.auto_approve == 'true' }}
         working-directory: ./bootstrap
-        run: terraform destroy -auto-approve
+        run: |
+          TFVARS="${{ github.event.inputs.var_file }}"
 
-      - name: Terraform destroy (manual)
+          if [ -f "$TFVARS" ]; then
+            echo "Destroying using TFVARS: $TFVARS"
+            terraform destroy -auto-approve -var-file="$TFVARS"
+          else
+            echo "WARNING: No tfvars file found at $TFVARS — running without var-file"
+            terraform destroy -auto-approve
+          fi
+
+      - name: Terraform destroy (manual confirm)
         if: ${{ github.event.inputs.auto_approve != 'true' }}
         working-directory: ./bootstrap
-        run: terraform destroy
+        run: |
+          TFVARS="${{ github.event.inputs.var_file }}"
 
+          if [ -f "$TFVARS" ]; then
+            terraform destroy -var-file="$TFVARS"
+          else
+            terraform destroy
+          fi
+
+      # ------------------ FINISHED ------------------------------
       - name: Completed
-        run: echo "Bootstrap resources destroyed successfully."
+        run: echo "Bootstrap destroy completed successfully."
