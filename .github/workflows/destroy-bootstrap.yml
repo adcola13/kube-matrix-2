@@ -1,16 +1,16 @@
-name: Destroy Bootstrap Terraform (S3 State + DynamoDB Lock)
+name: Destroy Bootstrap Terraform (S3 Backend + DynamoDB Lock)
 
 on:
   workflow_dispatch:
     inputs:
       var_file:
-        description: 'Optional tfvars file in bootstrap dir (example: bootstrap.tfvars)'
+        description: "Optional tfvars file inside bootstrap directory"
         required: false
-        default: 'bootstrap.tfvars'
+        default: "bootstrap.tfvars"
       auto_approve:
-        description: 'Auto-approve destroy (true/false)'
+        description: "Auto approve terraform destroy (true/false)"
         required: false
-        default: 'true'
+        default: "true"
 
 permissions:
   id-token: write
@@ -18,82 +18,122 @@ permissions:
 
 jobs:
   destroy:
-    name: Terraform Destroy Bootstrap Resources
+    name: Destroy Bootstrap Resources
     runs-on: ubuntu-latest
 
     steps:
+      # --------------------------------------------------------
+      # Checkout Code
+      # --------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------------
+      # Configure AWS (OIDC role)
+      # --------------------------------------------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # --------------------------------------------------------
+      # Install Terraform + jq
+      # --------------------------------------------------------
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '1.5.6'
+          terraform_version: "1.5.6"
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Change to bootstrap directory
-        run: cd bootstrap
-        shell: bash
-
-      - name: Terraform init (NO backend)
+      # --------------------------------------------------------
+      # Initialize Terraform (NO backend)
+      # --------------------------------------------------------
+      - name: Terraform init (backend disabled)
         working-directory: ./bootstrap
-        run: terraform init -input=false -backend=false
+        run: terraform init -backend=false -input=false
 
-      - name: Load var file (optional)
-        id: varfile
-        run: |
-          echo "TFVARS=${{ github.event.inputs.var_file }}" >> "$GITHUB_OUTPUT"
+      # --------------------------------------------------------
+      # Terraform validate
+      # --------------------------------------------------------
+      - name: Terraform validate
+        working-directory: ./bootstrap
+        run: terraform validate
 
+      # --------------------------------------------------------
+      # Terraform plan (destroy preview, safe)
+      # --------------------------------------------------------
       - name: Terraform plan (destroy)
+        id: plan
         working-directory: ./bootstrap
         run: |
-          TFVARS="${{ steps.varfile.outputs.TFVARS }}"
+          TFVARS="${{ github.event.inputs.var_file }}"
 
-          if [ -f "./${TFVARS}" ]; then
+          if [ -f "${TFVARS}" ]; then
             terraform plan -destroy -input=false -var-file="${TFVARS}" -out=destroy.tfplan
           else
             terraform plan -destroy -input=false -out=destroy.tfplan
           fi
 
-      # -------------------------------------------------------------------
-      # Force-delete S3 bucket contents BEFORE terraform destroy
-      # (terraform destroy will fail if bucket is not empty)
-      # -------------------------------------------------------------------
-      - name: Read bucket name from tfstate
-        id: read_bucket
+      # --------------------------------------------------------
+      # Read Terraform outputs SAFELY using JSON
+      # --------------------------------------------------------
+      - name: Read Terraform outputs (JSON-safe)
+        id: tf_outputs
         working-directory: ./bootstrap
         run: |
-          BUCKET=$(terraform output -raw unique_bucket_name 2>/dev/null || echo "")
-          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
-          echo "Bucket resolved: $BUCKET"
+          terraform output -json > tf_outputs.json
 
-      - name: Empty S3 bucket before destroy
-        if: ${{ steps.read_bucket.outputs.bucket != '' }}
+          BUCKET=$(jq -r '.unique_bucket_name.value // empty' tf_outputs.json)
+          TABLE=$(jq -r '.dynamodb_table_name.value // empty' tf_outputs.json)
+
+          echo "Parsed bucket name: $BUCKET"
+          echo "Parsed DynamoDB table: $TABLE"
+
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "table=$TABLE" >> "$GITHUB_OUTPUT"
+
+      # --------------------------------------------------------
+      # Empty S3 bucket BEFORE running destroy
+      # --------------------------------------------------------
+      - name: Empty S3 bucket
+        if: ${{ steps.tf_outputs.outputs.bucket != '' }}
         run: |
-          BUCKET="${{ steps.read_bucket.outputs.bucket }}"
+          BUCKET="${{ steps.tf_outputs.outputs.bucket }}"
           echo "Emptying bucket: $BUCKET ..."
           aws s3 rm "s3://${BUCKET}" --recursive || true
-          echo "Bucket emptied."
+          echo "Bucket emptied (or did not exist)."
 
-      # -------------------------------------------------------------------
-      # Terraform destroy execution
-      # -------------------------------------------------------------------
+      # --------------------------------------------------------
+      # Delete DynamoDB table BEFORE destroy (to avoid TF hang)
+      # --------------------------------------------------------
+      - name: Delete DynamoDB lock table manually
+        if: ${{ steps.tf_outputs.outputs.table != '' }}
+        run: |
+          TABLE="${{ steps.tf_outputs.outputs.table }}"
+          echo "Deleting DynamoDB table: $TABLE ..."
+          aws dynamodb delete-table --table-name "$TABLE" || true
+          echo "Waiting for deletion..."
+          aws dynamodb wait table-not-exists --table-name "$TABLE" || true
+          echo "Table deletion complete or skipped."
+
+      # --------------------------------------------------------
+      # Terraform destroy
+      # --------------------------------------------------------
       - name: Terraform destroy (auto-approve)
         if: ${{ github.event.inputs.auto_approve == 'true' }}
         working-directory: ./bootstrap
-        run: |
-          terraform destroy -auto-approve destroy.tfplan
+        run: terraform destroy -auto-approve destroy.tfplan
 
-      - name: Terraform destroy (manual approval)
+      - name: Terraform destroy (manual confirmation)
         if: ${{ github.event.inputs.auto_approve != 'true' }}
         working-directory: ./bootstrap
-        run: |
-          terraform destroy destroy.tfplan
+        run: terraform destroy destroy.tfplan
+
+      # --------------------------------------------------------
+      # Final Cleanup Log
+      # --------------------------------------------------------
+      - name: Completed
+        run: echo "Bootstrap destroy workflow completed successfully."
