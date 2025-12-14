@@ -41,20 +41,8 @@ resource "random_password" "db_password" {
 }
 
 # --------------------------------------
-# Store password in SSM
+# Store database parameters in SSM
 # --------------------------------------
-resource "aws_ssm_parameter" "aurora_master_password" {
-  name        = "/${var.project}/${var.environment}/db/master_password"
-  type        = "SecureString"
-  value       = random_password.db_password.result
-  overwrite   = true
-}
-#Read Password
-data "aws_ssm_parameter" "db_password" {
-  name            = aws_ssm_parameter.aurora_master_password.name
-  with_decryption = true
-}
-
 resource "aws_ssm_parameter" "aurora_database_name" {
   name      = "/${var.project}/${var.environment}/db/name"
   type      = "String"
@@ -71,16 +59,23 @@ resource "aws_ssm_parameter" "aurora_database_host" {
   depends_on = [aws_rds_cluster.main]
 }
 
-#Create password
-resource "kubernetes_secret" "db_secret" {
-  metadata {
-    name      = "db-secret"
-    namespace = "default"
-  }
+resource "aws_ssm_parameter" "aurora_master_username" {
+  name      = "/${var.project}/${var.environment}/db/username"
+  type      = "String"
+  value     = var.master_username
+  overwrite = true
+}
 
-  data = {
-    password = data.aws_ssm_parameter.db_password.value
-  }
+resource "aws_ssm_parameter" "aurora_master_password" {
+  name        = "/${var.project}/${var.environment}/db/master_password"
+  type        = "SecureString"
+  value       = random_password.db_password.result
+  overwrite   = true
+}
+#Read Password
+data "aws_ssm_parameter" "db_password" {
+  name            = aws_ssm_parameter.aurora_master_password.name
+  with_decryption = true
 }
 
 resource "aws_rds_cluster" "main" {
