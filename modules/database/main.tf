@@ -55,6 +55,22 @@ data "aws_ssm_parameter" "db_password" {
   with_decryption = true
 }
 
+resource "aws_ssm_parameter" "aurora_database_name" {
+  name      = "/${var.project}/${var.environment}/db/name"
+  type      = "String"
+  value     = var.database_name
+  overwrite = true
+}
+
+resource "aws_ssm_parameter" "aurora_database_host" {
+  name      = "/${var.project}/${var.environment}/db/host"
+  type      = "String"
+  value     = aws_rds_cluster.main.endpoint
+  overwrite = true
+
+  depends_on = [aws_rds_cluster.main]
+}
+
 #Create password
 resource "kubernetes_secret" "db_secret" {
   metadata {
