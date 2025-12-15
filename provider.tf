@@ -4,13 +4,13 @@ provider "aws" {
 }
 
  # Fetch cluster info
-data "aws_eks_cluster" "main" {
+/*data "aws_eks_cluster" "main" {
   name = module.eks.cluster_name
 }
 
 data "aws_eks_cluster_auth" "main" {
   name = module.eks.cluster_name
-}
+}*/
 
 
 provider "kubernetes" {
