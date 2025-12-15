@@ -70,6 +70,9 @@ aurora_serverless_v2_scaling_max = 4
 
 # Used by module to create secure param
 db_master_password_ssm_key = "/br/dev/db/master_password"
+db_username = "/br/dev/db/username"
+db_host        = "/br/dev/db/host"
+db_name   = "/br/dev/db/name"
 
 #EKS
 cluster_name="eks"
