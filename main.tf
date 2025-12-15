@@ -89,6 +89,8 @@ module "eks" {
 
   aurora_db_sg_id = null
 
+  github_actions_role_arn =var.github_actions_role_arn
+
   tags = var.tags
 
   depends_on = [module.network]
