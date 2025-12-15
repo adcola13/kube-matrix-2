@@ -14,7 +14,7 @@ resource "kubernetes_config_map" "aws_auth" {
           - system:nodes
 
       # GitHub Actions OIDC role
-      - rolearn: ${var.github_action_role_arn}
+      - rolearn: ${var.github_actions_role_arn}
         username: github-actions
         groups:
           - system:masters
