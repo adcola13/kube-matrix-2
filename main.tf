@@ -89,7 +89,7 @@ module "eks" {
 
   aurora_db_sg_id = null
 
-  github_actions_role_arn =var.github_actions_role_arn
+  github_action_role_arn =var.github_action_role_arn
 
   tags = var.tags
 
