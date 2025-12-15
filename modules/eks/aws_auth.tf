@@ -7,7 +7,7 @@ resource "kubernetes_config_map" "aws_auth" {
   data = {
     mapRoles = <<-EOT
       # Worker node role
-      - rolearn: ${aws_iam_role.node_role.arn}
+      - rolearn: ${aws_iam_role.node_group.arn}
         username: system:node:{{EC2PrivateDNSName}}
         groups:
           - system:bootstrappers
@@ -22,7 +22,7 @@ resource "kubernetes_config_map" "aws_auth" {
   }
 
   depends_on = [
-    aws_eks_cluster.this,
-    aws_eks_node_group.this
+    aws_eks_cluster.main,
+    aws_eks_node_group.main
   ]
 }
