@@ -180,6 +180,11 @@ variable "eks_disk_size" {
   type        = number
 }
 
+variable "github_actions_role_arn" {
+  description = "Role for GitHub Actions"
+  type        = string
+}
+
 #########################################
 # ECR Repositories
 #########################################
