@@ -45,7 +45,3 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "github_actions_role_arn" {
-  description = "IAM role ARN assumed by GitHub Actions via OIDC"
-  type        = string
-}
