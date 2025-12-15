@@ -74,6 +74,7 @@ db_master_password_ssm_key = "/br/dev/db/master_password"
 #EKS
 cluster_name="eks"
 name_prefix="book-review"
+github_actions_role_arn   = "arn:aws:iam::311141542113:role/github-actions-idp-role-br"
 
 #ECR
 repo_name_prefix="book-review"
