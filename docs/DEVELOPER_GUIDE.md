@@ -25,11 +25,11 @@ Run:
 
 Enter:
 
-`AWS Access Key ID: <your key>`  
-`AWS Secret Access Key: <your secret>`  
-`Default region: us-east-1`  
-`Output format: json`
-
+```AWS Access Key ID: <your key>  
+AWS Secret Access Key: <your secret>  
+Default region: us-east-1  
+Output format: json
+```
 # **Install Docker on Ubuntu (Linux)**
 
 ### **Step 1 — Uninstall old versions (optional)**
@@ -101,75 +101,57 @@ Use this script:
 
 ### **generate-kubeconfig.sh**
 
-`#!/bin/bash`
+```bash
+#!/bin/bash
 
-`# Script to generate kubeconfig for a developer for an existing EKS cluster`
+# Script to generate kubeconfig for a developer for an existing EKS cluster
+# -------------------------
+# Configurable parameters
+# -------------------------
 
-`# -------------------------`
+CLUSTER_NAME=${1:-"<your-cluster-name>"}     # Default: replace with your cluster name
+REGION=${2:-"us-east-1"}                   # Default: N. Virginia
+KUBECONFIG_FILE=${3:-"$HOME/.kube/config"}  # Default kubeconfig location
 
-`# Configurable parameters`
+# -------------------------
+# Prerequisites check
+# -------------------------
 
-`# -------------------------`
+command -v aws >/dev/null 2>&1 || { echo >&2 "AWS CLI not installed. Exiting."; exit 1; }
+command -v kubectl >/dev/null 2>&1 || { echo >&2 "kubectl not installed. Exiting."; exit 1; }
 
-`CLUSTER_NAME=${1:-"<your-cluster-name>"}     # Default: replace with your cluster name`
+# -------------------------
+# Generate kubeconfig
+# -------------------------
 
-`REGION=${2:-"us-east-1"}                   # Default: N. Virginia`
+echo "Generating kubeconfig for EKS cluster '$CLUSTER_NAME' in region '$REGION'..."
+aws eks --region $REGION update-kubeconfig --name $CLUSTER_NAME --kubeconfig $KUBECONFIG_FILE
 
-`KUBECONFIG_FILE=${3:-"$HOME/.kube/config"}  # Default kubeconfig location`
+# -------------------------
+# Test connection
+# -------------------------
 
-`# -------------------------`
+echo "Testing connection..."
+kubectl get nodes
 
-`# Prerequisites check`
-
-`# -------------------------`
-
-`command -v aws >/dev/null 2>&1 || { echo >&2 "AWS CLI not installed. Exiting."; exit 1; }`
-
-`command -v kubectl >/dev/null 2>&1 || { echo >&2 "kubectl not installed. Exiting."; exit 1; }`
-
-`# -------------------------`
-
-`# Generate kubeconfig`
-
-`# -------------------------`
-
-`echo "Generating kubeconfig for EKS cluster '$CLUSTER_NAME' in region '$REGION'..."`
-
-`aws eks --region $REGION update-kubeconfig --name $CLUSTER_NAME --kubeconfig $KUBECONFIG_FILE`
-
-`# -------------------------`
-
-`# Test connection`
-
-`# -------------------------`
-
-`echo "Testing connection..."`
-
-`kubectl get nodes`
-
-`if [ $? -eq 0 ]; then`
-
-    `echo "✅ Kubeconfig setup successful. You can now run kubectl commands."`
-
-`else`
-
-    `echo "❌ Failed to connect. Check your AWS credentials and cluster permissions."`
-
-`fi`
-
+if [ $? -eq 0 ]; then
+    echo "✅ Kubeconfig setup successful. You can now run kubectl commands."
+else
+    echo "❌ Failed to connect. Check your AWS credentials and cluster permissions."
+fi
+```
 Run:
 
-`chmod +x generate-kubeconfig.sh`
-
-`./generate-kubeconfig.sh`
-
+```chmod +x generate-kubeconfig.sh
+./generate-kubeconfig.sh
+```
 Usage:
 
 `bash generate-kubeconfig.sh <eks-cluster-name> <region-name>`
 
 Example:
 
-`bash generate-kubeconfig.sh dev-km-eks us-east-1`
+`bash generate-kubeconfig.sh km-dev-eks us-east-1`
 
 Test:
 
@@ -181,9 +163,9 @@ Test:
 
 ## **Method B — No script, run from terminal**
 
-`aws eks update-kubeconfig --region us-east-1 --name <cluster-name>`
-
-`kubectl get nodes`
+```aws eks update-kubeconfig --region us-east-1 --name <cluster-name>
+kubectl get nodes
+```
 
 You should see your EKS worker nodes.
 
@@ -193,42 +175,40 @@ You should see your EKS worker nodes.
 
 ---
 
-## **Test 1 — Create a namespace**
+# **Test 1 — Create a namespace**
 
 `kubectl create namespace sanity-test`
-
 `kubectl get ns`
-
 ---
 
 ## 
 
 ## **Test 2 — Simple NGINX Pod**
 
-`# nginx-pod.yaml`
+```# nginx-pod.yaml
 
-`apiVersion: v1`
+apiVersion: v1
 
-`kind: Pod`
+kind: Pod
 
-`metadata:`
+metadata:
 
-  `name: nginx-test`
+  name: nginx-test
 
-  `namespace: sanity-test`
+  namespace: sanity-test
 
-`spec:`
+spec:
 
-  `containers:`
+  containers:
 
-    `- name: nginx`
+    - name: nginx
 
-      `image: nginx:latest`
+      image: nginx:latest
 
-      `ports:`
+      ports:
 
-        `- containerPort: 80`
-
+        - containerPort: 80
+```
 Apply:
 
 `kubectl apply -f nginx-pod.yaml`
@@ -243,44 +223,44 @@ Apply:
 
 ## **Test 3 — NGINX Deployment**
 
-`# nginx-deploy.yaml`
+```# nginx-deploy.yaml
 
-`apiVersion: apps/v1`
+apiVersion: apps/v1
 
-`kind: Deployment`
+kind: Deployment
 
-`metadata:`
+metadata:
 
-  `name: nginx-deploy`
+  name: nginx-deploy
 
-  `namespace: sanity-test`
+  namespace: sanity-test
 
-`spec:`
+spec:
 
-  `replicas: 2`
+  replicas: 2
 
-  `selector:`
+  selector:
 
-    `matchLabels:`
+    matchLabels:
 
-      `app: nginx`
+      app: nginx
 
-  `template:`
+  template:
 
-    `metadata:`
+    metadata:
 
-      `labels:`
+      labels:
 
-        `app: nginx`
+        app: nginx
 
-    `spec:`
+    spec:
 
-      `containers:`
+      containers:
 
-        `- name: nginx`
+        - name: nginx
 
-          `image: nginx`
-
+          image: nginx
+```
 Apply:
 
 `kubectl apply -f nginx-deploy.yaml`
@@ -295,32 +275,32 @@ Apply:
 
 ### **service.yaml**
 
-`apiVersion: v1`
+```apiVersion: v1
 
-`kind: Service`
+kind: Service
 
-`metadata:`
+metadata:
 
-  `name: nginx-lb`
+  name: nginx-lb
 
-  `namespace: sanity-test`
+  namespace: sanity-test
 
-`spec:`
+spec:
 
-  `type: LoadBalancer`
+  type: LoadBalancer
 
-  `selector:`
+  selector:
 
-    `app: nginx`
+    app: nginx
 
-  `ports:`
+  ports:
 
-    `- protocol: TCP`
+    - protocol: TCP
 
-      `port: 80`
+      port: 80
 
-      `targetPort: 80`
-
+      targetPort: 80
+```
 Apply:
 
 `kubectl apply -f service.yaml`
@@ -335,7 +315,7 @@ Test in browser:
 
 ---
 
-# **⭐ 3\. Login to ECR (VERY IMPORTANT)**
+# **⭐ 3. Login to ECR (VERY IMPORTANT)**
 
 ECR requires a password-based login using AWS CLI.
 
@@ -348,7 +328,7 @@ Replace `<AWS_ACCOUNT_ID>` with your 12-digit account ID.
 
 ---
 
-# **⭐ 4\. Build Docker Image**
+# **⭐ 4. Build Docker Image**
 
 From your project root or whichever directory:
 
@@ -356,44 +336,44 @@ From your project root or whichever directory:
 
 **Dockerfile**
 
-`# ---------- Build Stage ----------`
+```# ---------- Build Stage ----------
 
-`FROM node:18-alpine AS build`
+FROM node:18-alpine AS build
 
-`WORKDIR /app`
+WORKDIR /app
 
-`# Install only production deps first for caching`
+# Install only production deps first for caching
 
-`COPY package*.json ./`
+COPY package*.json ./
 
-`RUN npm ci --only=production`
+RUN npm ci --only=production
 
-`# Copy source code`
+# Copy source code
 
-`COPY . .`
+COPY . .
 
-`# ---------- Runtime Stage ----------`
+# ---------- Runtime Stage ----------
 
-`FROM node:18-alpine`
+FROM node:18-alpine
 
-`# Create app directory`
+# Create app directory
 
-`WORKDIR /app`
+WORKDIR /app
 
-`# Copy only production node_modules & build artifacts`
+# Copy only production node_modules & build artifacts
 
-`COPY --from=build /app/node_modules ./node_modules`
+COPY --from=build /app/node_modules ./node_modules
 
-`COPY --from=build /app . /`
+COPY --from=build /app . /
 
-`# Expose backend port`
+# Expose backend port
 
-`EXPOSE 3001`
+EXPOSE 3001
 
-`# Start backend`
+# Start backend
 
-`CMD ["node", "src/server.js"]`
-
+CMD ["node", "src/server.js"]
+```
 Run the following:
 
 `docker build -t frontend-app .`
@@ -402,42 +382,42 @@ Run the following:
 
 **Dockerfile**
 
-`# ---------- Build Stage ----------`
+```# ---------- Build Stage ----------
 
-`FROM node:18-alpine AS build`
+FROM node:18-alpine AS build
 
-`WORKDIR /app`
+WORKDIR /app
 
-`# Copy package files and install ONLY production dependencies`
+# Copy package files and install ONLY production dependencies
 
-`COPY package*.json ./`
+COPY package*.json ./
 
-`RUN npm ci --only=production`
+RUN npm ci --only=production
 
-`# Copy full application source`
+# Copy full application source
 
-`COPY . .`
+COPY . .
 
-`# ---------- Runtime Stage ----------`
+# ---------- Runtime Stage ----------
 
-`FROM node:18-alpine`
+FROM node:18-alpine
 
-`WORKDIR /app`
+WORKDIR /app
 
-`# Copy production node_modules + app source from build stage`
+# Copy production node_modules + app source from build stage
 
-`COPY --from=build /app/node_modules ./node_modules`
+COPY --from=build /app/node_modules ./node_modules
 
-`COPY --from=build /app . /`
+COPY --from=build /app . /
 
-`# Expose backend port`
+# Expose backend port
 
-`EXPOSE 3001`
+EXPOSE 3001
 
-`# Start backend`
+# Start backend
 
-`CMD ["node", "src/server.js"]`
-
+CMD ["node", "src/server.js"]
+```
 Run this command:
 
 `docker build -t backend-app .`
@@ -450,7 +430,7 @@ Database image:
 
 # 
 
-# **⭐ 5\. Tag the Image (VERY IMPORTANT)**
+# **⭐ 5. Tag the Image (VERY IMPORTANT)**
 
 You must tag the local image with the ECR repository URL.
 
@@ -475,7 +455,7 @@ Use this format:
 
 ---
 
-# **⭐ 6\. Push Image to ECR**
+# **⭐ 6. Push Image to ECR**
 
 ### **Frontend push:**
 
@@ -493,7 +473,7 @@ Use this format:
 
 ---
 
-# **⭐ 7\. Verify That Images Are in ECR**
+# **⭐ 7. Verify That Images Are in ECR**
 
 `aws ecr describe-images \`  
   `--repository-name frontend-repo \`  
@@ -523,7 +503,7 @@ The URLs should look like:
 
 # 
 
-# **⭐ 8\. Deploy 3-Tier Architecture from ECR**
+# **⭐ 8. Deploy 3-Tier Architecture from ECR**
 
 Here is a clean sample showing how EKS pulls images from ECR.
 
@@ -533,101 +513,102 @@ Here is a clean sample showing how EKS pulls images from ECR.
 
 frontend-deployment.yaml
 
-`apiVersion: apps/v1`  
-`kind: Deployment`  
-`metadata:`  
-  `name: frontend`  
-  `namespace: default`  
-`spec:`  
-  `replicas: 2`  
-  `selector:`  
-    `matchLabels:`  
-      `tier: frontend`  
-  `template:`  
-    `metadata:`  
-      `labels:`  
-        `tier: frontend`  
-    `spec:`  
-      `containers:`  
-        `- name: frontend`  
-          `image: <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/frontend-repo:latest`  
-          `ports:`  
-            `- containerPort: 3000`
-
+```apiVersion: apps/v1  
+kind: Deployment  
+metadata:  
+  name: frontend  
+  namespace: default  
+spec:  
+  replicas: 2  
+  selector:  
+    matchLabels:  
+      tier: frontend  
+  template:  
+    metadata:  
+      labels:  
+        tier: frontend  
+    spec:  
+      containers:  
+        - name: frontend  
+          image: <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/frontend-repo:latest  
+          ports:  
+            - containerPort: 3000
+```
 #### **Service file:**
 
 **frontend-service.yaml**
 
-`apiVersion: v1`  
-`kind: Service`  
-`metadata:`  
-  `name: frontend`  
-`spec:`  
-  `type: LoadBalancer   # Or ClusterIP if using Ingress`  
-  `ports:`  
-    `- port: 80`  
-      `targetPort: 3000`  
-  `selector:`  
-    `app: frontend`
-
+```apiVersion: v1  
+kind: Service  
+metadata:  
+  name: frontend  
+spec:  
+  type: LoadBalancer   # Or ClusterIP if using Ingress  
+  ports:  
+    - port: 80  
+      targetPort: 3000  
+  selector:  
+    app: frontend
+```
 ---
 
 ## **Backend Deployment**
 
 **backend-deployment.yaml**
 
-`apiVersion: apps/v1`  
-`kind: Deployment`  
-`metadata:`  
-  `name: backend`  
-`spec:`  
-  `replicas: 2`  
-  `selector:`  
-    `matchLabels:`  
-      `tier: backend`  
-  `template:`  
-    `metadata:`  
-      `labels:`  
-        `tier: backend`  
-    `spec:`  
-      `containers:`  
-        `- name: backend`  
-          `image: <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest`  
-          `env:`  
-            `- name: DB_HOST`  
-              `value: "<aurora-cluster-endpoint>"`  
-            `- name: DB_USER`  
-              `value: "admin"`  
-            `- name: DB_PASS`  
-              `valueFrom:`  
-                `secretKeyRef:`  
-                  `name: aurora-secret`  
-                  `key: password`
-
+```apiVersion: apps/v1  
+kind: Deployment  
+metadata:  
+  name: backend  
+spec:  
+  replicas: 2  
+  selector:  
+    matchLabels:  
+      tier: backend  
+  template:  
+    metadata:  
+      labels:  
+        tier: backend  
+    spec:  
+      containers:  
+        - name: backend  
+          image: <aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest  
+          env:  
+            - name: DB_HOST  
+              value: "<aurora-cluster-endpoint>"  
+            - name: DB_USER  
+              value: "admin"  
+            - name: DB_PASS  
+              valueFrom:  
+                secretKeyRef:  
+                  name: aurora-secret  
+                  key: password
+```
 **backend-service.yaml**  
-`apiVersion: v1`  
-`kind: Service`  
-`metadata:`  
-  `name: backend`  
-`spec:`  
-  `type: ClusterIP`  
-  `ports:`  
-    `- port: 3001`  
-      `targetPort: 3001`  
-  `selector:`  
-    `app: backend`
+```apiVersion: v1  
+kind: Service  
+metadata:  
+  name: backend  
+spec:  
+  type: ClusterIP  
+  ports:  
+    - port: 3001  
+      targetPort: 3001  
+  selector:  
+    app: backend
+```
 
 **backend-config.yaml**  
-`apiVersion: v1`  
-`kind: ConfigMap`  
-`metadata:`  
-  `name: backend-config`  
-`data:`  
-  `db_host: "<aurora-cluster-endpoint>"`
-
+```apiVersion: v1  
+kind: ConfigMap  
+metadata:  
+  name: backend-config  
+data:  
+  db_host: "<aurora-cluster-endpoint>"
+```
 ---
 
-# **⭐ 9\. EKS → Aurora Serverless Connection Test**
+# **⭐ 9. EKS → Aurora Serverless Connection Test**
 
 **From a pod:**
 
@@ -662,8 +643,6 @@ Verify:
 If you see nodes → you are connected.
 
 ---
-
-# 
 
 # **⭐ Run YAML files (apply)**
 
@@ -727,3 +706,5 @@ Or delete specific ones:
 ### **Events:**
 
 `kubectl get events --sort-by=.metadata.creationTimestamp`  
+
+---

@@ -1,4 +1,4 @@
-# ✅ **DEPLOYMENT_GUIDE.md (Full Step-by-Step Guide)**
+# ✅ **Kube-Matrix Deployment Guide (Full Step-by-Step Guide)**
 
 # Deployment Guide  
 AWS + Kubernetes Internal Developer Platform (IDP)
@@ -58,16 +58,17 @@ Dynamodb_table_name - stores the table name, not required to be unique.
 
 
 ### 2.4 Configure backend.tf(will be in the root folder like Kube-matrix)  with the details of S3 and DynamoDB created in the previous step.
-terraform {
+```terraform {
   backend "s3" {
     bucket         = "<<prefix>>-terraform-state-dev-<<Datetime>>"
     dynamodb_table = "<<prefix>>-terraform-locks-dev-<<Datetime>>"
   }
 }
-
+```
 Run:
+```
 terraform init -reconfigure
-
+```
 # 🌐 3. Set variables in the environment variable file(tfvars).
 Navigate to environment
 cd envs/
@@ -81,10 +82,14 @@ private_subnet_cidrs   = ["10.0.101.0/24","10.0.102.0/24"]
 
 # ☸ 4. Deploy the modules - VPC, Subnets, NATs, IGw, Security Groups, EKS, ECR, Aurora MySQL, IAM Role
   a. Terraform Plan
+      ```
       terraform plan -var-file="./envs/dev.tfvars"
+      ```
 
   b. Terraform Apply
+      ```
       terraform apply -var-file="./envs/dev.tfvars" -auto-apply
+      ```
 
 Output will show:
 alb_irsa_role_arn
@@ -108,20 +113,22 @@ Not showing in output but present
 - ECR Repos: frontend, backend, database
 
 To validate SSM parameters:
+```
 aws ssm get-parameter --name "/km/dev/db/master_password" --with-decryption --region us-east-1
+```
 
 # 🧮 5. Generate Kubeconfig
+```
 aws eks update-kubeconfig --region us-east-1 --name <cluster-name>
-
 kubectl get nodes
-
+```
 You should see your EKS worker nodes
 
 # 🧪 6. Basic kubectl sanity tests**
 All YAML files for sanity test are stored in the sanity-test folder
-cd sanity-test
+```cd sanity-test
 ls
-
+```
 Output will show:
 nginx-pod.yaml
 nginx-deploy.yaml
@@ -130,42 +137,42 @@ service.yaml
 
 ## **Test 1 — Create a namespace**
 
-kubectl create namespace sanity-test
+```kubectl create namespace sanity-test
 kubectl get ns
-
+```
 ---
 
 ## 
 
 ## **Test 2 — Simple NGINX Pod**
 
-kubectl apply -f nginx-pod.yaml
+```kubectl apply -f nginx-pod.yaml
 kubectl get pods -n sanity-test
 kubectl logs nginx-test -n sanity-test
-
+```
 ---
 
 ## 
 
 ## **Test 3 — NGINX Deployment**
 
-kubectl apply -f nginx-deploy.yaml
+```kubectl apply -f nginx-deploy.yaml
 kubectl get deploy -n sanity-test
 kubectl get pods -n sanity-test
-
+```
 ---
 ##
 ## **Test 4 — LoadBalancer Service (ALB or NLB)**
 
-kubectl apply -f service.yaml
+```kubectl apply -f service.yaml
 kubectl get svc -n sanity-test
-
+```
 Within a minute, AWS will assign an external LB hostname.
 
 Test in browser:
-
+```
 `http://<external-lb-dns>`
-
+```
 ---
 ##
 

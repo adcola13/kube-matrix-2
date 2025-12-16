@@ -1,35 +1,32 @@
-# AWS + Kubernetes Internal Developer Platform (IDP)
-A fully automated, production-grade Internal Developer Platform (IDP) that enables development teams to deploy, scale, and manage cloud-native applications on AWS using Kubernetes (EKS). The platform is provisioned entirely through Terraform following best practices for multi-account, multi-region architectures.
+# **Kube-Matrix**
+
+## **Overview**
+
+**Kube-Matrix** **(AWS + Kubernetes Internal Developer Platform (IDP))** is a structured, modular Kubernetes deployment framework designed to manage multiple environments consistently. It enables teams to follow GitOps principles, reuse modules, automate deployments, and maintain clean, scalable environment configuration.
+
+It is a fully automated, production-grade Internal Developer Platform (IDP) that enables development teams to deploy, scale, and manage cloud-native applications on AWS using Kubernetes (EKS). The platform is provisioned entirely through Terraform following best practices for multi-account, multi-region architectures.
+
+This project aims to standardize how Kubernetes environments (dev, staging, prod) are defined, bootstrapped, and deployed.
 
 ---
 
-## 📌 Project Overview
-This project implements an enterprise-grade Internal Developer Platform with:
+## 🚀 **Key Features**
 
-- AWS Networking (VPC, Subnets, NAT, IGW, Endpoints)
-- Amazon EKS Cluster (Fully managed Kubernetes)
-- Aurora MySQL Serverless v2 Database
-- Amazon ECR for container image storage
-- Terraform S3 backend + DynamoDB Lock Table
-- IAM roles, policies, and security boundaries
-- Developer access via kubeconfig generation
-- CI/CD-ready environment separation (Dev, Stage, Prod)
+* Multi-environment Kubernetes configuration
 
-The platform is fully automated using Terraform modules:
-modules/
-├── network # VPC, Subnets, NAT, Endpoints
-├── eks # EKS Cluster + Node Groups
-├── database # Aurora MySQL
-├── ecr # ECR Repositories + Policies
-├── security # IAM roles/policies
-envs/
-├── dev
-├── stage
-└── prod
+* Clean directory-based separation of concerns
+
+* Reusable modules for infra and application deployments
+
+* GitOps-friendly repo structure
+
+* Automation workflows (GitHub Actions)
+
+* Sanity test suite for quick verification
 
 ---
 
-## 🚀 Core Principles
+##  **Core Principles**
 - **No hardcoding** of regions, partitions, account IDs, ARNs  
 - **Multi-region & multi-account ready**
 - **Strict naming & tagging conventions**
@@ -38,137 +35,190 @@ envs/
 - **Parameter Store for all credentials**
 - **Reusable, modular Terraform codebase**
 
+## **Standard Naming Convention to be followed**
+A consistent naming convention ensures clarity across multi-account, multi-region, multi-environment deployments.
+
+-**General Format**
+`<project>-<component>-<environment>-<region>`
+
+-Project name is going to be **Kube Matrix (km)**
+
+-**Variable Definitions**
+- project → short project code (ex: km for kube matrix)
+- component → vpc, eks, ng, db, ecr, sg, rtb, subnet, etc.
+- environment → dev / stage / prod
+- region → aws region shorthand (ap-south-1 → aps1)
+
+-**Rules**
+- All lowercase
+- Use hyphens, never underscores
+- Avoid special characters
+- Keep names short but meaningful
+- Environment always included except global resources
+
+## **Directory Structure**
+
+Below is the simplified directory layout of the project:
+
+kube-matrix-2/  
+ ├── .github/  
+ │    └── workflows/            \# CI/CD pipelines and automation  
+ ├── bootstrap/                 \# Bootstrap scripts for maintaining terraform state  
+ ├── docs/                      \# Documentation and guides  
+ ├── envs/                      \# Environment configs (dev, stage, prod, etc.)  
+ │    ├── dev/  
+ │    ├── stage/  
+ │    └── prod/  
+ ├── modules/                   \# Reusable modules (K8s components, infra, etc.)  
+ ├── scripts/                   \# Helper scripts (apply, validate, lint, etc.)  
+ ├── sanity-test/               \# Smoke tests to verify deployments  
+ ├── LICENSE (optional)  
+ └── README.md
+
 ---
 
-## 🌐 Platform Architecture
-### Includes:
-- **VPC**
-  - /16 CIDR  
-  - 2 public + 2 private subnets  
-  - NAT Gateway  
-  - IGW  
-  - Route Tables  
-  - VPC Endpoints (S3 & SSM recommended)
+## **Prerequisites**
 
-- **EKS**
-  - Latest supported K8s version  
-  - Managed Node Groups  
-  - Cluster Autoscaler  
-  - ALB ingress support  
-  - IAM roles for cluster + nodes  
-  - Kubeconfig generator script
+Before using this repo, ensure you have:
 
-- **Aurora MySQL Serverless v2**
-  - Private subnets only  
-  - Auto-scaling  
-  - Secrets stored in SSM Parameter Store  
-  - SG rules allowing pod-to-DB access
+* Cloud provider credentials and roles if provisioning resources
 
-- **ECR**
-  - Repos: `frontend`, `backend`, `database`  
-  - Lifecycle policies  
-  - Least-privilege IAM policies  
-  - CI/CD-only Prod access
+* Git installed
 
-- **Terraform Backend**
-  - S3 bucket for tfstate  
-  - DynamoDB table for tfstate locking  
+* Terraform installed
+
+* `kubectl` installed and configured
+
+* IAM user/role with admin privileges
+
+* SSH key (Dev only, if using Bastion)
+
+
+---
+## 📌 **Project Implementation**
+This project implements an enterprise-grade Internal Developer Platform with:
+
+- Terraform S3 backend + DynamoDB Lock Table
+- AWS Networking (VPC, Subnets, NAT, IGW, Endpoints)
+- Amazon EKS Cluster with ALB and Autoscaling controllers
+- Aurora MySQL Serverless v2 Database
+- Amazon ECR for container image storage
+- IAM roles, policies, and security boundaries
+- Developer access via kubeconfig generation
+- CI/CD-ready environment separation (Dev, Stage, Prod)
+
+## **Getting Started**
+
+### **1\. Clone the repository**
+
+````
+git clone https://github.com/AnuradhaVIyer/kube-matrix-2.git  
+cd kube-matrix-2
+````
+
+### **2\. Bootstrap your environment**
+
+Use the scripts in `bootstrap/` to initialize s3 bucket and dynamodb for maintaining terraform state.
+
+### **3\. Configure your environment**
+
+Modify values in `envs/<environment>` to suit your cluster.
+
+### **4\. Deploy modules**
+
+Use the files under `modules/` to deploy workloads and infrastructure.
+
+### **5\. Run sanity tests**
+
+Execute items under `sanity-test/` to validate deployments and connectivity.
 
 ---
 
-## 🧩 Module Inputs & Outputs
-Each module contains:
-- `variables.tf` (inputs)
-- `outputs.tf` (exported values)
-- `main.tf` (resources)
+## **How to Fork the Repository**
 
-Examples:
-```bash
-terraform output vpc_id
-terraform output private_subnet_ids
-terraform output eks_cluster_name
-terraform output ecr_repo_urls
+If you want to contribute or customize your own flow:
 
-#########################################################
-🧑‍💻 Developer Workflow
+1. Go to the GitHub repo page:  
+    `https://github.com/AnuradhaVIyer/kube-matrix-2`
 
-Build Docker Image
+2. Click **Fork** in the top-right corner
 
-Authenticate to ECR
+3. Select your GitHub account
 
-Tag and Push the image
+4. GitHub creates a forked copy under your profile
 
-Update deployment YAML
+You now have your own editable version.
 
-Apply to EKS via kubectl
+---
 
-Application available through ALB
+## **How to Work With a Fork**
 
-##########################################################
-📑 Documentation
+### 1\. Clone your fork
+
+````
+git clone https://github.com/\<your-username\>/kube-matrix-2.git  
+cd kube-matrix-2
+````
+### 2\. Add the original repo as an upstream remote
+
+````
+git remote add upstream https://github.com/AnuradhaVIyer/kube-matrix-2.git
+````
+### 3\. Keep your fork updated
+
+````
+git fetch upstream  
+git merge upstream/main
+````
+(or `git rebase upstream/main` if you prefer clean history)
+
+---
+
+## **How to Raise a Pull Request (PR)**
+
+### 1. Create a new branch for your change:
+    git checkout \-b feature/my-change  
+    
+### 2. Make your modifications (code, docs, fixes, etc.)  
+### 3. Commit your changes:  
+   ```
+    git add .  
+    git commit \-m "Describe the change"
+   ```
+### 4. Push the branch to your fork:
+    git push origin feature/my-change 
+    
+### 5. Go to your fork on GitHub
+
+### 6. GitHub automatically shows a **“Compare & Pull Request”** banner
+
+### 7. Click **Open Pull Request**
+
+### 8. Fill in details, description, and submit
+
+Your PR will now be visible in the main repository for review.
+
+---
+## **📑 Documentation**
 
 This repository includes full documentation:
 
-README.md – Overview (this file)
+**[README.md](/README.md)** – Overview (this file)
 
-DEPLOYMENT_GUIDE.md – Detailed step-by-step deployment
+**[DEPLOYMENT_GUIDE.md](/docs/DEPLOYMENT_GUIDE.md)** – Detailed step-by-step deployment guide for devops engineers
 
-DEVELOPER_GUIDE.md – Developer access guide, kubeconfig generation, ECR login, deployments
+**[DEVELOPER_GUIDE.md](/docs/DEVELOPER_GUIDE.md)** – Developer access guide, kubeconfig generation, ECR login, deployments for applications
 
-##########################################################
-🧪 Testing
+---
 
-Test steps include:
+## **Contribution Guidelines**
 
-Deploying example nginx pod
+* Follow the directory structure and naming conventions
 
-Testing ALB endpoint
+* Update documentation when modifying behavior
 
-Testing DB connectivity from pods
+* Run sanity tests before raising a PR
 
-ECR push/pull tests
+* Keep commits meaningful and clean
 
-##########################################################
-🛡 Security
-
-IAM least privilege
-
-Parameter Store for secrets
-
-No hardcoding credentials
-
-Restricted EKS endpoint (corp IP only for Stage/Prod)
-
-DB access only from EKS pods (Stage/Prod)
-
-#########################################################
-📦 Prerequisites
-
-AWS CLI v2
-
-Terraform >= 1.5
-
-kubectl
-
-IAM user/role with admin privileges
-
-SSH key (Dev only, if using Bastion)
-
-#########################################################
-🧰 Commands Summary
-Initialize Terraform
-terraform init
-
-Validate
-terraform validate
-
-Plan
-terraform plan -var-file=terraform.tfvars
-
-Apply
-terraform apply -var-file=terraform.tfvars
-
-#########################################################
-🏁 Conclusion
-
-This IDP provides a highly secure, scalable, automated Kubernetes platform aligned with AWS best practices and enterprise requirements. It can be extended with CI/CD pipelines, monitoring (Grafana/Prometheus), logging (EFK), tracing, and service mesh.
+---

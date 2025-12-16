@@ -1,0 +1,59 @@
+name: Terraform CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  terraform-ci:
+    name: Terraform Checks & Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # -------------------------------
+      # Checkout repo
+      # -------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------
+      # Setup Terraform
+      # -------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      # -------------------------------
+      # Terraform Init (no backend)
+      # -------------------------------
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      # -------------------------------
+      # Terraform Format
+      # -------------------------------
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      # -------------------------------
+      # Terraform Validate
+      # -------------------------------
+      - name: Terraform Validate
+        run: terraform validate
+
+      # -------------------------------
+      # Terraform Plan (PR visibility)
+      # -------------------------------
+      - name: Terraform Plan
+        run: terraform plan
+
+      # -------------------------------
+      # Security Scan (tfsec)
+      # -------------------------------
+      - name: Run tfsec security scan
+        uses: aquasecurity/tfsec-action@v1.0.3
