@@ -90,7 +90,7 @@ module "eks" {
   aurora_db_sg_id = null
 
   tags = var.tags
-  github_actions_role_arn = "arn:aws:iam::123456789012:role/Your-GitHub-Role"
+  github_actions_role_arn = var.github_actions_role_arn
   depends_on = [module.network]
 }
 
