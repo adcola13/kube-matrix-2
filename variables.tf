@@ -395,14 +395,6 @@ variable "db_master_password_ssm_key" {
 #   type = number
 # }
 
-#########################################
-# ECR Repositories
-#########################################
-variable "repo_name_prefix" {
-  description = "Name prefix for repositories"
-  type        = string
-}
-
 # #########################################
 # # Aurora Serverless v2 Settings
 # #########################################
