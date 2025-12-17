@@ -1,7 +1,7 @@
 # ---------------------------------------
 # Project / Environment
 # ---------------------------------------
-project             = "br"
+project             = "km"
 environment         = "dev"
 
 region              = "us-east-1"
@@ -12,7 +12,7 @@ az1                 = "use1a"
 az2                 = "use1b"
 
 tags = {
-  Project     = "br"
+  Project     = "km"
   Environment = "dev"
   Owner       = "DevTeam"
 }
@@ -55,8 +55,8 @@ eks_disk_size                  = 30
 # ---------------------------------------
 # Aurora MySQL Serverless V2
 # ---------------------------------------
-aurora_database_name          = "book_review_db"
-aurora_master_username        = "admin"
+aurora_database_name          = "km_dev"
+aurora_master_username        = "mysqladmin"
 aurora_master_password        = "DevSecureDBPassword123!"
 aurora_engine_version         = "8.0.mysql_aurora.3.08.2"
 
@@ -69,11 +69,8 @@ aurora_serverless_v2_scaling_min = 0.5
 aurora_serverless_v2_scaling_max = 4
 
 # Used by module to create secure param
-db_master_password_ssm_key = "/br/dev/db/master_password"
+db_master_password_ssm_key = "/km/dev/db/master_password"
 
 #EKS
 cluster_name="eks"
-name_prefix="book-review"
-
-#ECR
-repo_name_prefix="book-review"
+name_prefix="km"
