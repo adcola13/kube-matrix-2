@@ -38,7 +38,11 @@ resource "aws_eks_cluster" "main" {
   endpoint_private_access = true
   endpoint_public_access  = true
 }
-
+  # This is the critical setting for the new Access Entry features to work
+  access_config {
+    authentication_mode                         = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
   tags = merge(
@@ -163,4 +167,21 @@ resource "aws_iam_openid_connect_provider" "cluster" {
   tags = var.tags
 }
 
+# 2. Add the Access Entry for GitHub
+resource "aws_eks_access_entry" "github_actions" {
+  cluster_name      = aws_eks_cluster.main.name
+  principal_arn     = var.github_actions_role_arn
+  type              = "STANDARD"
+}
+
+# 3. Grant the Admin Policy to that Role
+resource "aws_eks_access_policy_association" "github_actions_admin" {
+  cluster_name  = aws_eks_cluster.main.name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = aws_eks_access_entry.github_actions.principal_arn
+
+  access_scope {
+    type = "cluster"
+  }
+}
 

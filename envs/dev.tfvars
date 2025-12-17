@@ -49,6 +49,7 @@ eks_node_min_size              = 1
 eks_node_max_size              = 3
 eks_node_desired_size          = 2
 eks_disk_size                  = 30
+github_actions_role_arn        = "arn:aws:iam::749635699241:role/github-actions-eks-deployer-role"
 
 # Security group will be created by module, no manual values needed
 

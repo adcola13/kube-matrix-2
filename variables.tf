@@ -180,6 +180,11 @@ variable "eks_disk_size" {
   type        = number
 }
 
+variable "github_actions_role_arn" {
+  description = "The ARN of the IAM role assumed by GitHub Actions"
+  type        = string
+}
+
 #########################################
 # Aurora Serverless v2
 #########################################
