@@ -3,7 +3,7 @@
 ###############################################################################
 
 terraform {
-  required_version = ">= 1.5.6"
+  required_version = ">= 1.3.0"
 
   required_providers {
     aws = {
@@ -28,9 +28,8 @@ resource "time_static" "s3_suffix" {}
 
 # Example output: 20250212T093015Z → converted to simple suffix: 20250212093015
 locals {
-  bucket_suffix = replace(timestamp(), "/[-T:Z]/", "")
+  bucket_suffix = replace(time_static.s3_suffix.rfc3339, "/[-T:Z]/", "")
   unique_bucket_name = "${var.bucket_prefix}-${local.bucket_suffix}"
-  unique_dynamo_name = "${var.dynamodb_table_name}-${local.bucket_suffix}"
 }
 
 ###############################################################################
@@ -78,7 +77,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "state_encrypt" {
 # 2. DYNAMODB TABLE FOR STATE LOCKING
 ###############################################################################
 resource "aws_dynamodb_table" "terraform_locks" {
-  name         = local.unique_dynamo_name
+  name         = local.dynamodb_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
 
